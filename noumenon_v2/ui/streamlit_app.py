@@ -396,11 +396,11 @@ def _render_header() -> None:
     )
     st.components.v1.html(
         f"""
-        <div style="margin:0 0 12px -8px;padding:0;">
+        <div style="margin:0 0 16px -8px;padding:4px 0 6px 0;">
             <img alt="Noumenon" src="{header_logo_src}" style="display:block;width:560px;height:auto;" />
         </div>
         """,
-        height=78,
+        height=96,
     )
     if _is_demo_mode():
         st.caption(
@@ -1094,3 +1094,4 @@ def render_app() -> None:
         _render_diagnosis_tab(case)
     elif section == "05 · Informe":
         _render_report_tab(case)
+
