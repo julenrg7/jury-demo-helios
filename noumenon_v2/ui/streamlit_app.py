@@ -266,8 +266,23 @@ def _render_sidebar() -> None:
 def _render_header() -> None:
     header_logo_src = load_brand_svg_data_uri("noumenon_imagotipo_horizontal_compact.svg")
     st.set_page_config(page_title="Noumenon", layout="wide")
-    st.markdown(
+    public_jury_mode = _is_public_jury_mode()
+    jury_chrome_css = (
         """
+        header[data-testid="stHeader"],
+        div[data-testid="stToolbar"],
+        div[data-testid="stDecoration"],
+        div[data-testid="stStatusWidget"],
+        #MainMenu,
+        footer {
+            display: none !important;
+        }
+        """
+        if public_jury_mode
+        else ""
+    )
+    st.markdown(
+        f"""
         <style>
         :root {
             --v2-bg: #0f151c;
@@ -402,6 +417,7 @@ def _render_header() -> None:
             margin-bottom: 8px;
             font-weight: 800;
         }
+        {jury_chrome_css}
         </style>
         """,
         unsafe_allow_html=True,
@@ -567,6 +583,24 @@ def _render_public_demo_diagnosis_metrics(
         )
 
 
+def _render_public_demo_notice(message: str) -> None:
+    st.markdown(
+        f"""
+        <div style="margin:16px 0 10px 0;padding:18px 20px;border:1px solid rgba(110,231,183,0.28);border-radius:18px;
+        background:linear-gradient(180deg, rgba(32,72,54,0.92) 0%, rgba(26,58,45,0.92) 100%);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);">
+            <div style="font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#a6f2cb;margin-bottom:8px;font-weight:800;">
+                Lectura preparada
+            </div>
+            <div style="font-size:16px;line-height:1.6;color:#dff8ea;font-weight:700;">
+                {message}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def _render_demo_stage_band(case: CaseRecord) -> None:
     has_diagnosis = "v2_diagnosis" in st.session_state
     active_section = st.session_state.get("v2_nav_section", "04 · Diagnóstico")
@@ -596,6 +630,11 @@ def _render_demo_stage_band(case: CaseRecord) -> None:
 
 def _render_section_footer(next_section: str, label: str) -> None:
     st.markdown("---")
+    if _is_public_jury_mode():
+        col1, _ = st.columns([0.28, 0.72])
+        if col1.button(label, use_container_width=True, key=f"goto_{next_section}_{label}"):
+            _queue_nav(next_section)
+        return
     col1, col2 = st.columns([0.28, 0.72])
     if col1.button(label, use_container_width=True, key=f"goto_{next_section}_{label}"):
         _queue_nav(next_section)
@@ -771,7 +810,7 @@ def _render_diagnosis_tab(case: CaseRecord) -> None:
             if case.case_status == "Borrador":
                 case.case_status = "Lectura en revisión"
     else:
-        st.success("La lectura ejecutiva de Helios AI ya está preparada para revisión de jurado.")
+        _render_public_demo_notice("La lectura ejecutiva de Helios AI ya está preparada para revisión de jurado.")
 
     diagnosis = st.session_state.get("v2_diagnosis")
     if diagnosis is None:
@@ -971,13 +1010,16 @@ def _render_diagnosis_tab(case: CaseRecord) -> None:
     df = pd.DataFrame(rows)
     st.markdown("#### Radar de potencia")
     st.caption("No mide calidad moral ni desempeño absoluto. Muestra cómo se distribuye la potencia entre poderes dentro del caso.")
-    radar_svg = build_radar_svg_from_core_with_size(diagnosis.core, size=600.0)
-    st.components.v1.html(radar_svg, height=860)
+    radar_size = 520.0 if public_jury_mode else 600.0
+    radar_height = 620 if public_jury_mode else 860
+    radar_svg = build_radar_svg_from_core_with_size(diagnosis.core, size=radar_size)
+    st.components.v1.html(radar_svg, height=radar_height)
     st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
     st.markdown("#### Mapa de desequilibrio")
     st.caption("Cruza potencia y fricción por nodo. El tamaño expresa estructura y el color expresa autoridad operativa.")
-    tension_map_svg = build_power_tension_map_svg(rows, width=1100, height=560)
-    st.components.v1.html(tension_map_svg, height=560)
+    tension_map_height = 460 if public_jury_mode else 560
+    tension_map_svg = build_power_tension_map_svg(rows, width=1100, height=tension_map_height)
+    st.components.v1.html(tension_map_svg, height=tension_map_height)
     if not demo_mode:
         st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
         st.markdown("#### Matriz de tensión")
@@ -1023,10 +1065,10 @@ def _render_report_tab(case: CaseRecord) -> None:
 
     report_variant = "jury" if _is_demo_mode() else "default"
     html = build_report_html(case, diagnosis, variant=report_variant)
-    st.success(
-        "La lectura ya está lista para revisión de jurado." if _is_demo_mode()
-        else "La lectura ya está en fase de salida ejecutiva. Aquí conviertes el caso en entregable."
-    )
+    if public_jury_mode:
+        _render_public_demo_notice("La lectura ya está lista para revisión de jurado.")
+    else:
+        st.success("La lectura ya está en fase de salida ejecutiva. Aquí conviertes el caso en entregable.")
     editorial_note = (
         "El informe está maquetado como pieza de concurso: apertura nítida, revelación estructural, decisión y cierre ejecutivo."
         if _is_demo_mode()
@@ -1172,3 +1214,4 @@ def render_app() -> None:
         _render_diagnosis_tab(case)
     elif section == "05 · Informe":
         _render_report_tab(case)
+
