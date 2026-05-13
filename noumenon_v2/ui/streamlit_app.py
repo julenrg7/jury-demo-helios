@@ -281,8 +281,7 @@ def _render_header() -> None:
         if public_jury_mode
         else ""
     )
-    st.markdown(
-        f"""
+    header_css = """
         <style>
         :root {
             --v2-bg: #0f151c;
@@ -417,9 +416,11 @@ def _render_header() -> None:
             margin-bottom: 8px;
             font-weight: 800;
         }
-        {jury_chrome_css}
+        __JURY_CHROME_CSS__
         </style>
-        """,
+        """
+    st.markdown(
+        header_css.replace("__JURY_CHROME_CSS__", jury_chrome_css),
         unsafe_allow_html=True,
     )
     st.components.v1.html(
@@ -1214,4 +1215,3 @@ def render_app() -> None:
         _render_diagnosis_tab(case)
     elif section == "05 · Informe":
         _render_report_tab(case)
-
