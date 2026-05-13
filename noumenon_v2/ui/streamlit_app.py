@@ -1012,8 +1012,21 @@ def _render_diagnosis_tab(case: CaseRecord) -> None:
     st.markdown("#### Radar de potencia")
     st.caption("No mide calidad moral ni desempeño absoluto. Muestra cómo se distribuye la potencia entre poderes dentro del caso.")
     radar_size = 520.0 if public_jury_mode else 600.0
-    radar_height = 620 if public_jury_mode else 860
+    radar_height = 780 if public_jury_mode else 860
     radar_svg = build_radar_svg_from_core_with_size(diagnosis.core, size=radar_size)
+    if public_jury_mode:
+        radar_svg = radar_svg.replace(
+            "<svg ",
+            '<svg style="display:block;width:100%;height:auto;" ',
+            1,
+        )
+        radar_svg = f"""
+        <div style="display:flex;justify-content:center;align-items:flex-start;width:100%;padding:0 0 8px 0;">
+            <div style="width:min(100%, 760px);">
+                {radar_svg}
+            </div>
+        </div>
+        """
     st.components.v1.html(radar_svg, height=radar_height)
     st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
     st.markdown("#### Mapa de desequilibrio")
