@@ -537,6 +537,36 @@ def _render_home_band(case: CaseRecord) -> None:
     st.markdown("---")
 
 
+def _render_public_demo_diagnosis_metrics(
+    integrity_display: str,
+    friction_display: str,
+    archetype_name: str,
+    structural_state_name: str,
+    integrity_copy: str,
+    friction_copy: str,
+) -> None:
+    cards = [
+        ("Integridad", integrity_display, integrity_copy),
+        ("Fricción", friction_display, friction_copy),
+        ("Arquetipo dominante", archetype_name, "Lectura principal del caso"),
+        ("Estado estructural", structural_state_name, "Momento revelado por la lectura"),
+    ]
+    cols = st.columns(4)
+    for col, (label, value, note) in zip(cols, cards):
+        col.markdown(
+            f"""
+            <div style="padding:18px;border:1px solid #2a3947;border-radius:18px;background:#10161d;min-height:148px;">
+                <div style="font-size:13px;line-height:1.35;color:#edf3f7;margin-bottom:14px;font-weight:600;">{label}</div>
+                <div style="font-size:24px;line-height:1.08;font-weight:800;color:#edf3f7;letter-spacing:-0.02em;word-break:break-word;">
+                    {value}
+                </div>
+            </div>
+            <div style="margin-top:10px;font-size:12px;line-height:1.55;color:#9fb0bd;">{note}</div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
 def _render_demo_stage_band(case: CaseRecord) -> None:
     has_diagnosis = "v2_diagnosis" in st.session_state
     active_section = st.session_state.get("v2_nav_section", "04 · Diagnóstico")
@@ -724,15 +754,24 @@ def _render_diagnosis_tab(case: CaseRecord) -> None:
     _open_section_shell(
         "04 · Diagnóstico",
         "Lectura estructural",
-        "Leemos la arquitectura del caso y priorizamos tensión, fragilidad y decisión ejecutiva.",
+        "Leemos la arquitectura del caso Helios AI y priorizamos tensión, fragilidad y decisión ejecutiva."
+        if _is_public_jury_mode()
+        else "Leemos la arquitectura del caso y priorizamos tensión, fragilidad y decisión ejecutiva.",
     )
-    if st.button("Generar lectura ejecutiva", type="primary"):
-        diagnosis = run_case_diagnosis(case)
-        st.session_state["v2_diagnosis"] = diagnosis
-        st.session_state["v2_comparison"] = build_snapshot_comparison(case, diagnosis)
-        append_case_snapshot(case, diagnosis)
-        if case.case_status == "Borrador":
-            case.case_status = "Lectura en revisión"
+    public_jury_mode = _is_public_jury_mode()
+    if not public_jury_mode:
+        button_label = (
+            "Regenerar lectura ejecutiva" if st.session_state.get("v2_diagnosis") is not None else "Generar lectura ejecutiva"
+        )
+        if st.button(button_label, type="primary"):
+            diagnosis = run_case_diagnosis(case)
+            st.session_state["v2_diagnosis"] = diagnosis
+            st.session_state["v2_comparison"] = build_snapshot_comparison(case, diagnosis)
+            append_case_snapshot(case, diagnosis)
+            if case.case_status == "Borrador":
+                case.case_status = "Lectura en revisión"
+    else:
+        st.success("La lectura ejecutiva de Helios AI ya está preparada para revisión de jurado.")
 
     diagnosis = st.session_state.get("v2_diagnosis")
     if diagnosis is None:
@@ -747,14 +786,24 @@ def _render_diagnosis_tab(case: CaseRecord) -> None:
     integrity_display, integrity_copy = describe_integrity(diagnosis.integrity)
     friction_display, friction_copy = describe_friction(diagnosis.friction)
 
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Integridad", integrity_display)
-    k2.metric("Fricción", friction_display)
-    k3.metric("Arquetipo dominante", diagnosis.archetype_name)
-    k4.metric("Estado estructural", diagnosis.structural_state_name)
-    sub1, sub2, _, _ = st.columns(4)
-    sub1.caption(integrity_copy)
-    sub2.caption(friction_copy)
+    if public_jury_mode:
+        _render_public_demo_diagnosis_metrics(
+            integrity_display=integrity_display,
+            friction_display=friction_display,
+            archetype_name=diagnosis.archetype_name,
+            structural_state_name=diagnosis.structural_state_name,
+            integrity_copy=integrity_copy,
+            friction_copy=friction_copy,
+        )
+    else:
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("Integridad", integrity_display)
+        k2.metric("Fricción", friction_display)
+        k3.metric("Arquetipo dominante", diagnosis.archetype_name)
+        k4.metric("Estado estructural", diagnosis.structural_state_name)
+        sub1, sub2, _, _ = st.columns(4)
+        sub1.caption(integrity_copy)
+        sub2.caption(friction_copy)
     st.caption("La confianza de lectura expresa cuán sólida resulta la hipótesis con la evidencia y calibración hoy disponibles.")
 
     robustness_label = "Frontera activa" if diagnosis.archetype_hybrid else "Lectura bien separada"
@@ -968,7 +1017,6 @@ def _render_report_tab(case: CaseRecord) -> None:
         st.info("Genera primero la lectura: el informe es la salida final, no el punto de partida.")
         return
 
-    public_jury_mode = _is_public_jury_mode()
     if case.case_status != "Informe listo":
         case.case_status = "Informe listo"
 
@@ -1102,7 +1150,9 @@ def render_app() -> None:
     _render_sidebar()
     _sync_demo_mode_state()
     case = _ensure_case_state()
-    if _is_demo_mode():
+    if _is_public_jury_mode():
+        pass
+    elif _is_demo_mode():
         _render_demo_stage_band(case)
     else:
         _render_home_band(case)
