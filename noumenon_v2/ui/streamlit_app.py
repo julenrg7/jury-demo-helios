@@ -56,15 +56,18 @@ def _load_demo_case(builder_key: str) -> None:
     builder = DEMO_CASE_BUILDERS.get(builder_key)
     if builder is None:
         return
+    st.session_state["v2_demo_mode"] = True
+    st.session_state["v2_demo_mode_previous"] = True
     _set_case(builder())
     _clear_generated_outputs()
+    st.session_state["v2_nav_target"] = "04 · Diagnóstico"
     st.rerun()
 
 
 def _reset_jury_demo() -> None:
     _set_case(build_helios_ai_demo_case())
     _clear_generated_outputs()
-    st.session_state["v2_nav_section"] = "04 · Diagnóstico"
+    st.session_state["v2_nav_target"] = "04 · Diagnóstico"
     st.rerun()
 
 
@@ -151,29 +154,24 @@ def _render_sidebar() -> None:
     if _is_public_jury_mode():
         st.session_state.setdefault("v2_nav_section", "04 · Diagnóstico")
         st.sidebar.info(
-            "Demo pública de jurado: Helios queda fijado como caso único y la navegación se limita a diagnóstico e informe."
+            "Demo pública preparada para jurado: Helios queda fijado como caso único y el recorrido se concentra en diagnóstico e informe."
         )
         st.sidebar.radio(
-            "Recorrido",
+            "Recorrido de demo",
             options=allowed_sections,
             key="v2_nav_section",
         )
         st.sidebar.markdown("---")
         st.sidebar.markdown("**Caso público**: `Helios AI`")
         st.sidebar.markdown("**Modo**: `solo lectura`")
-        st.sidebar.markdown("**Salida**: `diagnóstico + informe`")
+        st.sidebar.markdown("**Salida**: `diagnóstico + informe HTML`")
         st.sidebar.markdown(f"**Estado**: `{case.case_status}`")
         return
-    st.sidebar.toggle(
-        "Modo demo jurado",
-        key="v2_demo_mode",
-        help="Carga Helios como caso principal y limpia la interfaz para una demostración de concurso o sala.",
-    )
     if _is_demo_mode():
         st.sidebar.info(
-            "Modo demo jurado activo: Helios queda fijado como caso principal, el recorrido se simplifica y la lectura se centra en decisión e informe."
+            "Helios queda fijado como caso principal, el recorrido se simplifica y la lectura se concentra en decisión e informe."
         )
-        if st.sidebar.button("Reiniciar demo jurado", use_container_width=True, type="primary", key="reset_jury_demo"):
+        if st.sidebar.button("Reiniciar demo Helios AI", use_container_width=True, type="primary", key="reset_jury_demo"):
             _reset_jury_demo()
         with st.sidebar.expander("Otros casos demo", expanded=False):
             demo_options = list(DEMO_CASE_BUILDERS.keys())
@@ -194,16 +192,28 @@ def _render_sidebar() -> None:
         key="v2_nav_section",
     )
     st.sidebar.markdown("---")
-    with st.sidebar.expander("Operativa del caso", expanded=not _is_demo_mode()):
-        if st.button("Nuevo caso", use_container_width=True, key="new_case_sidebar"):
-            _set_case(CaseRecord.create_blank())
-            st.rerun()
+    with st.sidebar.expander("Control del caso", expanded=not _is_demo_mode()):
+        st.caption("Activa Helios para un recorrido guiado o vuelve a operativa normal para trabajar otros casos.")
 
-        if not _is_demo_mode() and st.button("Cargar demo Helios AI", use_container_width=True, key="load_demo_inside"):
+        if st.button(
+            "Cargar demo Helios AI",
+            use_container_width=True,
+            type="primary",
+            key="load_demo_inside",
+        ):
+            st.session_state["v2_demo_mode"] = True
+            st.session_state["v2_demo_mode_previous"] = True
             _set_case(build_helios_ai_demo_case())
             st.session_state.pop("v2_diagnosis", None)
             st.session_state.pop("v2_pdf_bytes", None)
             st.session_state.pop("v2_pdf_filename", None)
+            st.session_state["v2_nav_target"] = "04 · Diagnóstico"
+            st.rerun()
+
+        if st.button("Nuevo caso", use_container_width=True, key="new_case_sidebar"):
+            st.session_state["v2_demo_mode"] = False
+            st.session_state["v2_demo_mode_previous"] = False
+            _set_case(CaseRecord.create_blank())
             st.rerun()
 
         if st.button("Guardar caso", use_container_width=True, key="save_case_sidebar"):
@@ -220,6 +230,8 @@ def _render_sidebar() -> None:
             )
             action_col1, action_col2 = st.columns(2)
             if selected_case_id and action_col1.button("Cargar caso", use_container_width=True, key="load_case_sidebar"):
+                st.session_state["v2_demo_mode"] = False
+                st.session_state["v2_demo_mode_previous"] = False
                 _set_case(REPO.load(selected_case_id))
                 st.rerun()
             confirm_delete = st.checkbox(
@@ -408,7 +420,7 @@ def _render_header() -> None:
         )
     else:
         st.caption(
-            "Consola de lectura estructural guiada por analista. La metodología manda; la interfaz ordena, visualiza y exporta."
+            "Consola de lectura estructural guiada por criterio experto. La metodología manda; la interfaz ordena, hace visible y exporta."
         )
     st.markdown(
         (
@@ -419,7 +431,7 @@ def _render_header() -> None:
                 Lectura estructural de poder
             </div>
             <div style="font-size:28px;line-height:1.08;font-weight:800;color:#edf3f7;max-width:860px;">
-                Una consola para convertir lectura estructural experta en decisión clara, criterio visible y salida exportable.
+                Una consola para convertir lectura estructural experta en decisión clara, criterio visible y salida ejecutiva exportable.
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
                 <span style="padding:6px 10px;border:1px solid #2a3947;border-radius:999px;font-size:11px;color:#d6e0e8;">Metodología propietaria</span>
@@ -446,9 +458,9 @@ def _render_header() -> None:
                 Noumenon organiza evidencia, tensión y arquitectura de poder en una lectura ejecutiva clara, defendible y exportable.
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;">
-                <span style="padding:6px 10px;border:1px solid #2a3947;border-radius:999px;font-size:11px;color:#d6e0e8;">Caso Helios preparado</span>
+                <span style="padding:6px 10px;border:1px solid #2a3947;border-radius:999px;font-size:11px;color:#d6e0e8;">Caso Helios activado</span>
                 <span style="padding:6px 10px;border:1px solid #2a3947;border-radius:999px;font-size:11px;color:#d6e0e8;">Lectura estructural guiada</span>
-                <span style="padding:6px 10px;border:1px solid #2a3947;border-radius:999px;font-size:11px;color:#d6e0e8;">Decisión + informe</span>
+                <span style="padding:6px 10px;border:1px solid #2a3947;border-radius:999px;font-size:11px;color:#d6e0e8;">Decisión e informe</span>
             </div>
         </div>
         """
@@ -963,8 +975,8 @@ def _render_report_tab(case: CaseRecord) -> None:
     report_variant = "jury" if _is_demo_mode() else "default"
     html = build_report_html(case, diagnosis, variant=report_variant)
     st.success(
-        "La lectura ya está en fase de salida para jurado." if _is_demo_mode()
-        else "La lectura ya está en fase de salida comercial. Aquí conviertes el caso en entregable."
+        "La lectura ya está lista para revisión de jurado." if _is_demo_mode()
+        else "La lectura ya está en fase de salida ejecutiva. Aquí conviertes el caso en entregable."
     )
     editorial_note = (
         "El informe está maquetado como pieza de concurso: apertura nítida, revelación estructural, decisión y cierre ejecutivo."
@@ -972,9 +984,9 @@ def _render_report_tab(case: CaseRecord) -> None:
         else "El informe ya está maquetado como salida ejecutiva: apertura, mandato, priorización, visualización estructural y cierre metodológico."
     )
     board_ready_note = (
-        "Esta salida ya contiene tesis central, contradicción principal, decisión ejecutiva y visualización estructural lista para sala."
+        "Esta salida ya contiene tesis central, contradicción principal, decisión ejecutiva y visualización estructural lista para sala. La lectura no termina en el diagnóstico: termina cuando orienta una decisión."
         if _is_demo_mode()
-        else "Esta salida ya contiene tesis central, decisión ejecutiva, visualización estructural y criterio claro de priorización. Está pensada para leerse bien tanto en revisión individual como en conversación de comité."
+        else "Esta salida ya contiene tesis central, decisión ejecutiva, visualización estructural y criterio claro de priorización. La lectura no termina en el diagnóstico: termina cuando orienta una decisión clara."
     )
 
     report_col, delivery_col = st.columns([1.25, 0.75])
@@ -1000,18 +1012,33 @@ def _render_report_tab(case: CaseRecord) -> None:
         """,
         unsafe_allow_html=True,
     )
-    delivery_col.markdown(
+    delivery_note = (
         """
         <div class="v2-premium-panel" style="margin:10px 0 18px 0;">
             <div class="v2-premium-label">Salida disponible</div>
             <div style="font-size:18px;line-height:1.3;font-weight:800;color:#edf3f7;margin-bottom:10px;">
-                El caso ya puede cerrarse como entregable real.
+                El caso ya puede cerrarse como salida visible y defendible.
+            </div>
+            <div style="font-size:13px;line-height:1.7;color:#c7d3db;">
+                Puedes revisar la maqueta HTML y recorrer una salida preparada para jurado en un entorno estable de demostración.
+            </div>
+        </div>
+        """
+        if public_jury_mode
+        else """
+        <div class="v2-premium-panel" style="margin:10px 0 18px 0;">
+            <div class="v2-premium-label">Salida disponible</div>
+            <div style="font-size:18px;line-height:1.3;font-weight:800;color:#edf3f7;margin-bottom:10px;">
+                El caso ya puede cerrarse como entregable ejecutivo real.
             </div>
             <div style="font-size:13px;line-height:1.7;color:#c7d3db;">
                 Puedes revisar la maqueta HTML, preparar la exportación en PDF y conservar una versión lista para jurado, cliente o comité.
             </div>
         </div>
-        """,
+        """
+    )
+    delivery_col.markdown(
+        delivery_note,
         unsafe_allow_html=True,
     )
     html_actions_col, pdf_actions_col = st.columns(2)
@@ -1094,4 +1121,3 @@ def render_app() -> None:
         _render_diagnosis_tab(case)
     elif section == "05 · Informe":
         _render_report_tab(case)
-
