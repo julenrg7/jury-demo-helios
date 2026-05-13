@@ -1017,6 +1017,7 @@ def _render_report_tab(case: CaseRecord) -> None:
         st.info("Genera primero la lectura: el informe es la salida final, no el punto de partida.")
         return
 
+    public_jury_mode = _is_public_jury_mode()
     if case.case_status != "Informe listo":
         case.case_status = "Informe listo"
 
